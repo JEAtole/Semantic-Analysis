@@ -1,102 +1,164 @@
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.regex.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Main {
+
     public static void main(String[] args) {
 
         Scanner sc = new Scanner(System.in);
         System.out.print("Enter Source Language: ");
         String javaCode = sc.nextLine();
-        List<String> lexemes = seperateCode(javaCode);
-        //System.out.println(lexemes);
-        List<String> tokens = tokenize(lexemes);
 
-        /*System.out.print("Tokens: ");
-        for (String token : tokens) {
-            System.out.print(token + " ");
-        }*/
+        System.out.println("Would you like to proceed with Lexical Analysis?\nYes or No");
+        String answer = sc.nextLine();
 
-        setPattern(lexemes, tokens);
+        if (answer.equalsIgnoreCase("yes")) {
+            List<String> lexemes = separateCode(javaCode);
+            tokenize(lexemes);
+        }
 
         sc.close();
     }
-
-    public static void setPattern(List<String> lexemes, List<String> tokens) {
-
-        Pattern pattern;
-
-        String dataType = lexemes.get(tokens.indexOf("<data_type>"));
-        String value = lexemes.get(tokens.indexOf("<value>"));
-        //System.out.println(dataType);
-
-        switch (dataType) {
-            case "int" -> pattern = Pattern.compile("^-?\\d+$");
-            case "String" -> pattern = Pattern.compile("^\".*\"$");
-            case "char" -> pattern = Pattern.compile("^'[a-zA-Z]'$");
-            case "double" -> pattern = Pattern.compile("^-?.?\\d*.?\\d*[\\d+].?$");
-            case "float" -> pattern = Pattern.compile("^-?.?\\d*.?\\d*[\\d+].?f$");
-            default -> pattern = null;
-        }
-
-        assert pattern != null;
-        semanticChecker(pattern, value);
-
-    }
-
     public static void semanticChecker(Pattern pattern, String value) {
-        boolean isCorrect = false;
+
+        boolean isValid = false;
         Matcher matcher;
         matcher = pattern.matcher(value);
         boolean matchFound = matcher.find();
         if (matchFound){
-            isCorrect = true;
+            isValid = true;
         }
 
-        if (isCorrect){
-            System.out.println("Semantically Correct!");
+        if (isValid){
+            System.out.println("The code passed Lexical Analysis");
+            System.out.println("Congratulations! The code passed all three analysis.");
         } else {
             System.out.println("Semantically Incorrect!");
         }
     }
 
-    public static List<String> tokenize(List<String> lexemes){
+    public static void setPattern(List<String> tokens, List<String> lexemes) {
+
+        Pattern pattern;
+
+        String dataType = lexemes.get(tokens.indexOf("<data_type>"));
+        String value = lexemes.get(tokens.indexOf("<value>"));
+
+        // For testing if the data type is corrected determined
+        //System.out.println(dataType);
+
+        // To set the pattern to match based on the data type
+        switch (dataType) {
+            case "int" -> pattern = Pattern.compile("^-?\\d+$");
+            case "String" -> pattern = Pattern.compile("^\".*\"$");
+            case "char" -> pattern = Pattern.compile("^'[a-zA-Z]'$");
+            case "double" -> pattern = Pattern.compile("^-?\\d*\\.?\\d+\\.?$");
+            case "float" -> pattern = Pattern.compile("^-?\\d*\\.?\\d+\\.?f$");
+            default -> pattern = null;
+        }
+
+        // method to check if the value matches with the pattern
+        assert pattern != null;
+        semanticChecker(pattern, value);
+    }
+
+    public static void syntaxChecker(List<String> tokens, List<String> lexemes) {
+
+        boolean isValid = true;
+
+        //<data_type> <identifier> <assignment_operator> <value> <delimiter>
+        String[] syntax = {"<data_type>", "<identifier>", "<assignment_operator>", "<value>", "<delimiter>"};
+
+        if (tokens.size() == 5){
+            for(int i = 0; i<5; i++) {
+                boolean match = Objects.equals(tokens.get(i), syntax[i]);
+                if (!match){
+                    isValid = false;
+                    System.out.println("Syntax is incorrect.");
+                }
+            }
+        } else {
+            System.out.println("Syntax is incorrect.");
+        }
+
+        if (isValid){
+            System.out.println("The code passed Syntax Analysis");
+            System.out.println("Would you like to continue to Semantic Analysis? Yes or No?");
+            Scanner sc = new Scanner(System.in);
+            String answer = sc.nextLine();
+
+            if (answer.equalsIgnoreCase("yes")){
+                setPattern(tokens, lexemes);
+            }
+
+            sc.close();
+        }
+    }
+
+    public static void tokenize(List<String> lexemes){
         List<String> tokens = new ArrayList<>();
-        String[] regEx = {"int|double|float|char|String", "=", ";", "[0-9]+|\"[^\"]{2,}\"|'[a-zA-Z]'", "^[A-Za-z]\\w*$"};
+        String[] regEx = {"int|double|float|char|String", "=", ";", "(^-?\\d+$)|(^\".*\"$)|(^'[a-zA-Z]'$)|(^-?\\d*\\.?\\d+\\.?$)|(^-?\\d*\\.?\\d+\\.?f$)","([a-zA-Z_$][a-zA-Z0-9_$]*)"};
         String[] tokenName = {"data_type", "assignment_operator", "delimiter", "value", "identifier"};
+
+        boolean isValid = true;
 
         for (String lexeme : lexemes) {
             boolean isfound = false;
-            for(int i=1; i<5; i++){
+            boolean isDataType = false;
+
+            for(int i=0; i<5; i++) {
                 Pattern pattern = Pattern.compile(regEx[i]);
                 Matcher matcher = pattern.matcher(lexeme);
                 boolean found = matcher.find();
-                if (found && i == 4){
-                    pattern = Pattern.compile(regEx[0]);
-                    matcher = pattern.matcher(lexeme);
-                    found = matcher.find();
+
+                if (found){
                     isfound = true;
-                    if (found){
-                        tokens.add("<"+ tokenName[0] + ">");
-                    } else {
-                        tokens.add("<"+ tokenName[4] + ">");
+
+                    if (i == 0) {
+                        isDataType = true;
                     }
-                } else if (found) {
-                    isfound = true;
-                    tokens.add("<" + tokenName[i] + ">");
+
+                    if (i<4){
+                        tokens.add("<" + tokenName[i] + ">");
+                    } else {
+                        if (!isDataType){
+                            tokens.add("<" + tokenName[i] + ">");
+                        }
+                    }
                 }
             }
-            if (!isfound){
-                tokens.add("<invalid token>");
+
+            if (!isfound) {
+                isValid = false;
+                System.out.println("There is an invalid lexeme, cannot be put into token");
             }
         }
 
-        return tokens;
+        if (isValid) {
+
+            // For checking
+            //System.out.println(tokens);
+
+            System.out.println("The code passed Lexical Analysis");
+            System.out.println("Would you like to continue to Syntax Analysis? Yes or No?");
+            Scanner sc = new Scanner(System.in);
+            String answer = sc.nextLine();
+
+            if (answer.equalsIgnoreCase("yes")){
+                syntaxChecker(tokens, lexemes);
+            }
+
+            sc.close();
+        }
+
     }
-    public static List<String> seperateCode(String code) {
+
+    public static List<String> separateCode(String code) {
         List<String> lexemes = new ArrayList<>();
-        Pattern pattern = Pattern.compile("(;)|(=)|(\".*\")|('[a-zA-Z]')|(-?\\.?\\d*\\.?\\d*[\\d+]\\.?f)|([a-zA-Z_$][a-zA-Z0-9_$]*)|(-?\\.?\\d*\\.?\\d*[\\d+]\\.?)");
+        Pattern pattern = Pattern.compile("(;)|(=)|(\".*\")|('[a-zA-Z]')|(-?\\d*\\.?\\d+\\.?f)|([a-zA-Z_$][a-zA-Z0-9_$]*)|(-?\\d*\\.?\\d+\\.?)");
 
         Matcher matcher = pattern.matcher(code);
         while (matcher.find()) {
@@ -106,6 +168,8 @@ public class Main {
             }
         }
 
+        // For checking
+        //System.out.println(lexemes);
         return lexemes;
     }
 }
